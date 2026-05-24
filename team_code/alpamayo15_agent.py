@@ -24,6 +24,8 @@ IMG_HEIGHT = 720
 NUM_FRAMES = 4
 NUM_HISTORY = 16
 
+HISTORY_STRIDE = 2
+
 INFERENCE_INTERVAL_TICKS = 10
 
 NAV_LOOKAHEAD_M = 50.0
@@ -94,8 +96,8 @@ class Alpamayo15Agent(AutonomousAgent):
     def __init__(self, carla_host, carla_port, debug=False):
         super().__init__(carla_host, carla_port, debug)
         self._tick = 0
-        self._ego_history = EgoHistoryBuffer(capacity=NUM_HISTORY)
-        self._frame_buffer: deque[dict] = deque(maxlen=NUM_FRAMES)
+        self._ego_history = EgoHistoryBuffer(capacity=NUM_HISTORY, stride=HISTORY_STRIDE)
+        self._frame_buffer: deque[dict] = deque(maxlen=NUM_FRAMES * HISTORY_STRIDE)
         self._cached_traj: np.ndarray | None = None
         self._cached_traj_world: np.ndarray | None = None
         self._cot_text: str = ""
@@ -192,7 +194,7 @@ class Alpamayo15Agent(AutonomousAgent):
             )
             self._spectator_frame_idx += 1
 
-        ready = len(self._frame_buffer) == NUM_FRAMES
+        ready = len(self._frame_buffer) == NUM_FRAMES * HISTORY_STRIDE
         if ready and (self._cached_traj is None or self._tick % INFERENCE_INTERVAL_TICKS == 0):
             self._cached_traj = self._run_inference()
 
@@ -208,8 +210,9 @@ class Alpamayo15Agent(AutonomousAgent):
         return self._follower.step(self._cached_traj)
 
     def _run_inference(self) -> np.ndarray:
+        sampled_frames = list(self._frame_buffer)[HISTORY_STRIDE - 1 :: HISTORY_STRIDE]
         images = np.stack(
-            [np.stack([frame[c["id"]] for c in CAMERAS], axis=0) for frame in self._frame_buffer],
+            [np.stack([frame[c["id"]] for c in CAMERAS], axis=0) for frame in sampled_frames],
             axis=1,
         )
         if not self._dumped:
