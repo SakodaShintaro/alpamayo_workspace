@@ -36,7 +36,4 @@ class EgoHistoryBuffer:
             rel_yaw = math.radians(-st["yaw"]) - current_yaw
             cr, sr = math.cos(rel_yaw), math.sin(rel_yaw)
             rot[i] = np.array([[cr, -sr, 0.0], [sr, cr, 0.0], [0.0, 0.0, 1.0]])
-        print(f"[EgoHistoryBuffer] snapshot: xyz.shape={xyz.shape}, rot.shape={rot.shape}")
-        for i in range(self.capacity):
-            print(f"  [{i}] xyz={xyz[i]}, rot=\n{rot[i]}")
         return xyz, rot
