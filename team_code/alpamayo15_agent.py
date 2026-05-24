@@ -8,6 +8,7 @@ from alpamayo1_5.models.alpamayo1_5 import Alpamayo1_5
 from leaderboard.autoagents.autonomous_agent import AutonomousAgent, Track
 
 from team_code.ego_history import EgoHistoryBuffer
+from team_code.logger import get_logger
 from team_code.pid_follower import PIDTrajectoryFollower
 
 MODEL_NAME = "nvidia/Alpamayo-1.5-10B"
@@ -39,11 +40,12 @@ class Alpamayo15Agent(AutonomousAgent):
         self._frame_buffer: deque[dict] = deque(maxlen=NUM_FRAMES)
         self._cached_traj: np.ndarray | None = None
         self._follower: PIDTrajectoryFollower | None = None
+        self._log = get_logger()
 
-        print(f"[Alpamayo15Agent] loading {MODEL_NAME} ...", flush=True)
+        self._log.info(f"loading {MODEL_NAME} ...")
         self.model = Alpamayo1_5.from_pretrained(MODEL_NAME, dtype=torch.bfloat16).to("cuda")
         self.processor = helper.get_processor(self.model.tokenizer)
-        print("[Alpamayo15Agent] model loaded", flush=True)
+        self._log.info("model loaded")
 
     def sensors(self):
         return [
@@ -123,6 +125,9 @@ class Alpamayo15Agent(AutonomousAgent):
             )
 
         traj = pred_xyz[0, 0, 0].float().cpu().numpy()
+        self._log.info(
+            f"traj ego_frame: wp0={traj[0]} wp10={traj[10]} wp30={traj[30]} wp63={traj[63]}"
+        )
         return traj
 
     def destroy(self):

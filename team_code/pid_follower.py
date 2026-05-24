@@ -4,6 +4,8 @@ import carla
 import numpy as np
 from agents.navigation.controller import VehiclePIDController
 
+from team_code.logger import get_logger
+
 LOOKAHEAD_MIN_M = 4.0
 LOOKAHEAD_MAX_M = 12.0
 LOOKAHEAD_SPEED_GAIN = 0.4
@@ -53,6 +55,7 @@ class PIDTrajectoryFollower:
         self._prev_steer = 0.0
         self._prev_throttle = 0.0
         self._prev_brake = 0.0
+        self._log = get_logger()
 
     def step(self, traj_ego_alpamayo: np.ndarray) -> carla.VehicleControl:
         traj_carla_local = alpamayo_to_carla_local(traj_ego_alpamayo)
@@ -104,4 +107,11 @@ class PIDTrajectoryFollower:
         ctrl.brake = float(brake)
         ctrl.hand_brake = False
         ctrl.manual_gear_shift = False
+        self._log.info(
+            f"PID speed={speed_mps:.2f}m/s lookahead={lookahead:.2f}m "
+            f"target_speed={target_speed_kmh:.1f}km/h traj_extent={traj_extent:.2f}m "
+            f"idx={idx} target_yaw={target_yaw:.1f} "
+            f"raw(s={raw.steer:.3f},t={raw.throttle:.3f},b={raw.brake:.3f}) "
+            f"out(s={ctrl.steer:.3f},t={ctrl.throttle:.3f},b={ctrl.brake:.3f})"
+        )
         return ctrl
