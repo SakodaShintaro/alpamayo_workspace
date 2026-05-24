@@ -1,6 +1,9 @@
+import os
 from collections import deque
+from pathlib import Path
 
 import carla
+import cv2
 import numpy as np
 import torch
 from alpamayo1_5 import helper
@@ -40,6 +43,7 @@ class Alpamayo15Agent(AutonomousAgent):
         self._frame_buffer: deque[dict] = deque(maxlen=NUM_FRAMES)
         self._cached_traj: np.ndarray | None = None
         self._follower: PIDTrajectoryFollower | None = None
+        self._dumped = False
         self._log = get_logger()
 
         self._log.info(f"loading {MODEL_NAME} ...")
@@ -93,6 +97,14 @@ class Alpamayo15Agent(AutonomousAgent):
             [np.stack([frame[c["id"]] for c in CAMERAS], axis=0) for frame in self._frame_buffer],
             axis=1,
         )
+        if not self._dumped:
+            self._dumped = True
+            dump_dir = Path(os.environ.get("SAVE_PATH", ".")) / "input_images"
+            dump_dir.mkdir(parents=True, exist_ok=True)
+            for ci, c in enumerate(CAMERAS):
+                for fi in range(images.shape[1]):
+                    cv2.imwrite(str(dump_dir / f"{c['id']}_frame{fi:08d}.png"), images[ci, fi, :, :, ::-1])
+            self._log.info(f"dumped first-inference camera frames to {dump_dir}")
         image_tensor = torch.from_numpy(images).permute(0, 1, 4, 2, 3).contiguous()
 
         xyz, rot = self._ego_history.snapshot()
