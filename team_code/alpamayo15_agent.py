@@ -40,6 +40,11 @@ CAMERAS = [
     {"id": "cam_front_tele",  "x": 1.5, "y":  0.0, "z": 2.4, "yaw":   0.0, "fov":  30},
 ]
 
+SPECTATOR_ID = "spectator"
+SPECTATOR_WIDTH = 640
+SPECTATOR_HEIGHT = 480
+SPECTATOR_INTERVAL_TICKS = 2
+
 
 def get_entry_point() -> str:
     return "Alpamayo15Agent"
@@ -56,6 +61,9 @@ class Alpamayo15Agent(AutonomousAgent):
         self._dumped = False
         self._world_plan: list[tuple[carla.Transform, RoadOption]] = []
         self._log = get_logger()
+        self._spectator_dir = Path(os.environ.get("SAVE_PATH", ".")) / "spectator"
+        self._spectator_dir.mkdir(parents=True, exist_ok=True)
+        self._spectator_frame_idx = 0
 
     def setup(self, path_to_conf_file):
         self.track = Track.SENSORS
@@ -89,7 +97,7 @@ class Alpamayo15Agent(AutonomousAgent):
         return "Continue straight"
 
     def sensors(self):
-        return [
+        policy_cams = [
             {
                 "type": "sensor.camera.rgb",
                 "id": c["id"],
@@ -99,6 +107,14 @@ class Alpamayo15Agent(AutonomousAgent):
             }
             for c in CAMERAS
         ]
+        spectator = {
+            "type": "sensor.camera.rgb",
+            "id": SPECTATOR_ID,
+            "x": -8.0, "y": 0.0, "z": 5.0,
+            "roll": 0.0, "pitch": -20.0, "yaw": 0.0,
+            "width": SPECTATOR_WIDTH, "height": SPECTATOR_HEIGHT, "fov": 90,
+        }
+        return policy_cams + [spectator]
 
     def run_step(self, input_data, timestamp):
         if self._follower is None:
@@ -113,6 +129,11 @@ class Alpamayo15Agent(AutonomousAgent):
             rgb = bgra[:, :, [2, 1, 0]]
             frame[c["id"]] = rgb
         self._frame_buffer.append(frame)
+
+        if self._tick % SPECTATOR_INTERVAL_TICKS == 0:
+            bgr = input_data[SPECTATOR_ID][1][:, :, :3]
+            cv2.imwrite(str(self._spectator_dir / f"frame_{self._spectator_frame_idx:08d}.png"), bgr)
+            self._spectator_frame_idx += 1
 
         ready = len(self._frame_buffer) == NUM_FRAMES
         if ready and (self._cached_traj is None or self._tick % INFERENCE_INTERVAL_TICKS == 0):
@@ -139,8 +160,10 @@ class Alpamayo15Agent(AutonomousAgent):
             dump_dir = Path(os.environ.get("SAVE_PATH", ".")) / "input_images"
             dump_dir.mkdir(parents=True, exist_ok=True)
             for ci, c in enumerate(CAMERAS):
+                cam_dir = dump_dir / c["id"]
+                cam_dir.mkdir(parents=True, exist_ok=True)
                 for fi in range(images.shape[1]):
-                    cv2.imwrite(str(dump_dir / f"{c['id']}_frame{fi:08d}.png"), images[ci, fi, :, :, ::-1])
+                    cv2.imwrite(str(cam_dir / f"frame{fi:08d}.png"), images[ci, fi, :, :, ::-1])
             self._log.info(f"dumped first-inference camera frames to {dump_dir}")
         image_tensor = torch.from_numpy(images).permute(0, 1, 4, 2, 3).contiguous()
 
