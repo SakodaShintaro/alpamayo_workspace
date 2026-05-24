@@ -4,3 +4,6 @@
 [submodule "alpamayo1.5"]
 	path = alpamayo1.5
 	url = https://github.com/NVlabs/alpamayo1.5.git
+[submodule "Bench2Drive"]
+	path = Bench2Drive
+	url = https://github.com/SakodaShintaro/Bench2Drive.git
