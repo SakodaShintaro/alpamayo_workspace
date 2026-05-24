@@ -34,10 +34,10 @@ ROAD_OPTION_TEXT = {
 }
 
 CAMERAS = [
-    {"id": "cam_front_left",  "x": 1.0, "y": -0.5, "z": 2.4, "yaw": -60.0, "fov": 120},
-    {"id": "cam_front_wide",  "x": 1.5, "y":  0.0, "z": 2.4, "yaw":   0.0, "fov":  95},
-    {"id": "cam_front_right", "x": 1.0, "y":  0.5, "z": 2.4, "yaw":  60.0, "fov": 120},
-    {"id": "cam_front_tele",  "x": 1.5, "y":  0.0, "z": 2.4, "yaw":   0.0, "fov":  30},
+    {"id": "cam_front_left",  "x": 1.0, "y": -0.5, "z": 2.4, "yaw": -60.0, "fov": 120, "alpamayo_idx": 0},
+    {"id": "cam_front_wide",  "x": 1.5, "y":  0.0, "z": 2.4, "yaw":   0.0, "fov":  95, "alpamayo_idx": 1},
+    {"id": "cam_front_right", "x": 1.0, "y":  0.5, "z": 2.4, "yaw":  60.0, "fov": 120, "alpamayo_idx": 2},
+    {"id": "cam_front_tele",  "x": 1.5, "y":  0.0, "z": 2.4, "yaw":   0.0, "fov":  30, "alpamayo_idx": 6},
 ]
 
 SPECTATOR_ID = "spectator"
@@ -173,7 +173,8 @@ class Alpamayo15Agent(AutonomousAgent):
 
         nav_text = self._nav_text(self.hero_actor.get_location())
         self._log.info(f"nav_text: {nav_text}")
-        messages = helper.create_message(image_tensor.flatten(0, 1), camera_indices=None, nav_text=nav_text)
+        camera_indices = torch.tensor([c["alpamayo_idx"] for c in CAMERAS], dtype=torch.long)
+        messages = helper.create_message(image_tensor.flatten(0, 1), camera_indices=camera_indices, nav_text=nav_text)
         inputs = self.processor.apply_chat_template(
             messages,
             tokenize=True,
