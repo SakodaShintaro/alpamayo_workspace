@@ -2,8 +2,11 @@
 
 - <https://github.com/NVlabs/alpamayo>
 - <https://github.com/NVlabs/alpamayo1.5>
+- <https://github.com/SakodaShintaro/Bench2Drive>
 
 をsubmoduleに持ち、環境を1つで管理することを目指すリポジトリ
+
+CARLA 0.9.16を使ってBench2Driveを動かす。
 
 ## Clone
 

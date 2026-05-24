@@ -6,6 +6,19 @@ requires-python = "==3.12.*"
 dependencies = [
   "alpamayo_r1",
   "alpamayo1_5",
+  "carla==0.9.16",
+  "pygame",
+  "py-trees==0.8.3",
+  "tabulate>=0.10.0",
+  "shapely>=2.1.2",
+  "dictor>=0.1.12",
+  "pexpect>=4.9.0",
+  "transforms3d>=0.4.2",
+  "xmlschema>=4.3.1",
+  "simple-watchdog-timer>=0.1.1",
+  "ephem>=4.2.1",
+  "networkx>=3.6.1",
+  "psutil>=7.2.2",
 ]
 
 [tool.uv]
@@ -19,3 +32,4 @@ alpamayo_r1 = { workspace = true }
 alpamayo1_5 = { workspace = true }
 cosmos-rl = { git = "https://github.com/nvidia-cosmos/cosmos-rl.git", rev = "747d1bd" }
 flash-attn = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.8cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" }
+carla = { path = "../../CARLA_0.9.16/PythonAPI/carla/dist/carla-0.9.16-cp312-cp312-manylinux_2_31_x86_64.whl" }
