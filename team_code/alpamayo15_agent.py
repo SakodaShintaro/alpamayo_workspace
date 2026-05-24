@@ -1,4 +1,6 @@
+import math
 import os
+import textwrap
 from collections import deque
 from pathlib import Path
 
@@ -13,7 +15,7 @@ from leaderboard.autoagents.autonomous_agent import AutonomousAgent, Track
 
 from team_code.ego_history import EgoHistoryBuffer
 from team_code.logger import get_logger
-from team_code.pid_follower import PIDTrajectoryFollower
+from team_code.pid_follower import PIDTrajectoryFollower, alpamayo_to_carla_local, local_to_world
 
 MODEL_NAME = "nvidia/Alpamayo-1.5-10B"
 
@@ -75,7 +77,13 @@ CAMERAS = [
 SPECTATOR_ID = "spectator"
 SPECTATOR_WIDTH = 640
 SPECTATOR_HEIGHT = 480
+SPECTATOR_FOV = 90
 SPECTATOR_INTERVAL_TICKS = 2
+
+SPECTATOR_LOCAL_TF = carla.Transform(
+    carla.Location(x=-8.0, y=0.0, z=5.0),
+    carla.Rotation(roll=0.0, pitch=-20.0, yaw=0.0),
+)
 
 
 def get_entry_point() -> str:
@@ -89,6 +97,8 @@ class Alpamayo15Agent(AutonomousAgent):
         self._ego_history = EgoHistoryBuffer(capacity=NUM_HISTORY)
         self._frame_buffer: deque[dict] = deque(maxlen=NUM_FRAMES)
         self._cached_traj: np.ndarray | None = None
+        self._cached_traj_world: np.ndarray | None = None
+        self._cot_text: str = ""
         self._follower: PIDTrajectoryFollower | None = None
         self._dumped = False
         self._world_plan: list[tuple[carla.Transform, RoadOption]] = []
@@ -148,15 +158,15 @@ class Alpamayo15Agent(AutonomousAgent):
         spectator = {
             "type": "sensor.camera.rgb",
             "id": SPECTATOR_ID,
-            "x": -8.0,
-            "y": 0.0,
-            "z": 5.0,
-            "roll": 0.0,
-            "pitch": -20.0,
-            "yaw": 0.0,
+            "x": SPECTATOR_LOCAL_TF.location.x,
+            "y": SPECTATOR_LOCAL_TF.location.y,
+            "z": SPECTATOR_LOCAL_TF.location.z,
+            "roll": SPECTATOR_LOCAL_TF.rotation.roll,
+            "pitch": SPECTATOR_LOCAL_TF.rotation.pitch,
+            "yaw": SPECTATOR_LOCAL_TF.rotation.yaw,
             "width": SPECTATOR_WIDTH,
             "height": SPECTATOR_HEIGHT,
-            "fov": 90,
+            "fov": SPECTATOR_FOV,
         }
         return policy_cams + [spectator]
 
@@ -175,7 +185,8 @@ class Alpamayo15Agent(AutonomousAgent):
         self._frame_buffer.append(frame)
 
         if self._tick % SPECTATOR_INTERVAL_TICKS == 0:
-            bgr = input_data[SPECTATOR_ID][1][:, :, :3]
+            bgr = input_data[SPECTATOR_ID][1][:, :, :3].copy()
+            self._draw_overlay(bgr)
             cv2.imwrite(
                 str(self._spectator_dir / f"frame_{self._spectator_frame_idx:08d}.png"), bgr
             )
@@ -238,20 +249,70 @@ class Alpamayo15Agent(AutonomousAgent):
         )
 
         with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-            pred_xyz, _pred_rot = self.model.sample_trajectories_from_data_with_vlm_rollout(
+            pred_xyz, _pred_rot, extra = self.model.sample_trajectories_from_data_with_vlm_rollout(
                 data=model_inputs,
                 top_p=0.98,
                 temperature=0.6,
                 num_traj_samples=1,
                 diffusion_kwargs={"inference_step": 10},
                 max_generation_length=256,
+                return_extra=True,
             )
 
         traj = pred_xyz[0, 0, 0].float().cpu().numpy()
         self._log.info(
             f"traj ego_frame: wp0={traj[0]} wp10={traj[10]} wp30={traj[30]} wp63={traj[63]}"
         )
+
+        ego_tf_at_inference = self.hero_actor.get_transform()
+        self._cached_traj_world = local_to_world(ego_tf_at_inference, alpamayo_to_carla_local(traj))
+
+        cot_arr = extra.get("cot") if isinstance(extra, dict) else None
+        if cot_arr is not None:
+            self._cot_text = str(np.asarray(cot_arr).reshape(-1)[0])
+            self._log.info(f"cot: {self._cot_text}")
         return traj
+
+    def _draw_overlay(self, bgr: np.ndarray) -> None:
+        if self._cached_traj_world is not None:
+            ego_mat = np.array(self.hero_actor.get_transform().get_matrix())
+            spec_local_mat = np.array(SPECTATOR_LOCAL_TF.get_matrix())
+            spec_world_mat = ego_mat @ spec_local_mat
+            spec_inv_mat = np.linalg.inv(spec_world_mat)
+            fx = fy = SPECTATOR_WIDTH / (2 * math.tan(math.radians(SPECTATOR_FOV) / 2))
+            cx, cy = SPECTATOR_WIDTH / 2, SPECTATOR_HEIGHT / 2
+            for wp in self._cached_traj_world:
+                p_h = np.array([wp[0], wp[1], wp[2], 1.0])
+                p_cam = spec_inv_mat @ p_h
+                if p_cam[0] <= 0.1:
+                    continue
+                u = int(fx * p_cam[1] / p_cam[0] + cx)
+                v = int(fy * (-p_cam[2]) / p_cam[0] + cy)
+                if 0 <= u < SPECTATOR_WIDTH and 0 <= v < SPECTATOR_HEIGHT:
+                    cv2.circle(bgr, (u, v), 3, (0, 255, 0), -1)
+
+        if self._cot_text:
+            lines = textwrap.wrap(self._cot_text, width=80)[-3:]
+            line_h = 18
+            y0 = SPECTATOR_HEIGHT - line_h * len(lines) - 6
+            cv2.rectangle(
+                bgr,
+                (0, y0 - 4),
+                (SPECTATOR_WIDTH, SPECTATOR_HEIGHT),
+                (0, 0, 0),
+                -1,
+            )
+            for i, line in enumerate(lines):
+                cv2.putText(
+                    bgr,
+                    line,
+                    (8, y0 + line_h * (i + 1) - 4),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.45,
+                    (255, 255, 255),
+                    1,
+                    cv2.LINE_AA,
+                )
 
     def destroy(self):
         self.model = None
