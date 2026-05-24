@@ -6,6 +6,7 @@ import carla
 import cv2
 import numpy as np
 import torch
+from agents.navigation.local_planner import RoadOption
 from alpamayo1_5 import helper
 from alpamayo1_5.models.alpamayo1_5 import Alpamayo1_5
 from leaderboard.autoagents.autonomous_agent import AutonomousAgent, Track
@@ -23,6 +24,15 @@ NUM_HISTORY = 16
 
 INFERENCE_INTERVAL_TICKS = 10
 
+NAV_LOOKAHEAD_M = 50.0
+ROAD_OPTION_TEXT = {
+    RoadOption.LEFT: "Turn left",
+    RoadOption.RIGHT: "Turn right",
+    RoadOption.STRAIGHT: "Go straight at the intersection",
+    RoadOption.CHANGELANELEFT: "Change lane to the left",
+    RoadOption.CHANGELANERIGHT: "Change lane to the right",
+}
+
 CAMERAS = [
     {"id": "cam_front_left",  "x": 1.0, "y": -0.5, "z": 2.4, "yaw": -60.0, "fov": 120},
     {"id": "cam_front_wide",  "x": 1.5, "y":  0.0, "z": 2.4, "yaw":   0.0, "fov":  95},
@@ -36,20 +46,47 @@ def get_entry_point() -> str:
 
 
 class Alpamayo15Agent(AutonomousAgent):
-    def setup(self, path_to_conf_file):
-        self.track = Track.SENSORS
+    def __init__(self, carla_host, carla_port, debug=False):
+        super().__init__(carla_host, carla_port, debug)
         self._tick = 0
         self._ego_history = EgoHistoryBuffer(capacity=NUM_HISTORY)
         self._frame_buffer: deque[dict] = deque(maxlen=NUM_FRAMES)
         self._cached_traj: np.ndarray | None = None
         self._follower: PIDTrajectoryFollower | None = None
         self._dumped = False
+        self._world_plan: list[tuple[carla.Transform, RoadOption]] = []
         self._log = get_logger()
 
+    def setup(self, path_to_conf_file):
+        self.track = Track.SENSORS
         self._log.info(f"loading {MODEL_NAME} ...")
         self.model = Alpamayo1_5.from_pretrained(MODEL_NAME, dtype=torch.bfloat16).to("cuda")
         self.processor = helper.get_processor(self.model.tokenizer)
         self._log.info("model loaded")
+
+    def set_global_plan(self, global_plan_gps, global_plan_world_coord):
+        super().set_global_plan(global_plan_gps, global_plan_world_coord)
+        self._world_plan = list(global_plan_world_coord)
+        self._log.info(f"global plan received: {len(self._world_plan)} waypoints")
+
+    def _nav_text(self, ego_loc: carla.Location) -> str:
+        if not self._world_plan:
+            return "Continue straight"
+        nearest_idx = min(
+            range(len(self._world_plan)),
+            key=lambda i: self._world_plan[i][0].location.distance(ego_loc),
+        )
+        accumulated = 0.0
+        prev_loc = ego_loc
+        for i in range(nearest_idx, len(self._world_plan)):
+            tf, opt = self._world_plan[i]
+            accumulated += prev_loc.distance(tf.location)
+            prev_loc = tf.location
+            if opt in ROAD_OPTION_TEXT:
+                return f"{ROAD_OPTION_TEXT[opt]} in {accumulated:.0f}m"
+            if accumulated > NAV_LOOKAHEAD_M:
+                break
+        return "Continue straight"
 
     def sensors(self):
         return [
@@ -111,7 +148,9 @@ class Alpamayo15Agent(AutonomousAgent):
         hist_xyz = torch.from_numpy(xyz).float().unsqueeze(0).unsqueeze(0)
         hist_rot = torch.from_numpy(rot).float().unsqueeze(0).unsqueeze(0)
 
-        messages = helper.create_message(image_tensor.flatten(0, 1), camera_indices=None, nav_text=None)
+        nav_text = self._nav_text(self.hero_actor.get_location())
+        self._log.info(f"nav_text: {nav_text}")
+        messages = helper.create_message(image_tensor.flatten(0, 1), camera_indices=None, nav_text=nav_text)
         inputs = self.processor.apply_chat_template(
             messages,
             tokenize=True,
