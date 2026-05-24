@@ -26,7 +26,7 @@ NUM_HISTORY = 16
 
 HISTORY_STRIDE = 2
 
-INFERENCE_INTERVAL_TICKS = 10
+INFERENCE_INTERVAL_TICKS = 5
 
 NAV_LOOKAHEAD_M = 50.0
 ROAD_OPTION_TEXT = {
@@ -108,6 +108,9 @@ class Alpamayo15Agent(AutonomousAgent):
         self._spectator_dir = Path(os.environ.get("SAVE_PATH", ".")) / "spectator"
         self._spectator_dir.mkdir(parents=True, exist_ok=True)
         self._spectator_frame_idx = 0
+        self._show_spectator = bool(os.environ.get("DISPLAY"))
+        if not self._show_spectator:
+            self._log.info("DISPLAY not set, spectator window disabled")
 
     def setup(self, path_to_conf_file):
         self.track = Track.SENSORS
@@ -193,6 +196,9 @@ class Alpamayo15Agent(AutonomousAgent):
                 str(self._spectator_dir / f"frame_{self._spectator_frame_idx:08d}.png"), bgr
             )
             self._spectator_frame_idx += 1
+            if self._show_spectator:
+                cv2.imshow(SPECTATOR_ID, bgr)
+                cv2.waitKey(1)
 
         ready = len(self._frame_buffer) == NUM_FRAMES * HISTORY_STRIDE
         if ready and (self._cached_traj is None or self._tick % INFERENCE_INTERVAL_TICKS == 0):
@@ -318,5 +324,7 @@ class Alpamayo15Agent(AutonomousAgent):
                 )
 
     def destroy(self):
+        if self._show_spectator:
+            cv2.destroyAllWindows()
         self.model = None
         torch.cuda.empty_cache()
