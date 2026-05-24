@@ -4,6 +4,3 @@
 [submodule "alpamayo1.5"]
 	path = alpamayo1.5
 	url = https://github.com/NVlabs/alpamayo1.5.git
-[submodule "alpasim"]
-	path = alpasim
-	url = https://github.com/NVlabs/alpasim.git
