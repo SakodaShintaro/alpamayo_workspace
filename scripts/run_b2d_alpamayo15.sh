@@ -5,7 +5,7 @@
 # Usage:
 #   scripts/run_b2d_alpamayo15.sh [routes_xml]
 #
-# Defaults to dev10_single.xml; pass bench2drive220.xml etc. to override.
+# Defaults to route_25865_overtake.xml; pass bench2drive220.xml etc. to override.
 set -eux
 
 clear
@@ -14,7 +14,7 @@ REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "${REPO_ROOT}"
 
 B2D_ROOT=${REPO_ROOT}/Bench2Drive
-ROUTES=$(readlink -f "${1:-${B2D_ROOT}/leaderboard/data/dev10_single.xml}")
+ROUTES=$(readlink -f "${1:-${B2D_ROOT}/leaderboard/data/route_25865_overtake.xml}")
 
 export CARLA_ROOT=${CARLA_ROOT:-$HOME/CARLA_0.9.16}
 
