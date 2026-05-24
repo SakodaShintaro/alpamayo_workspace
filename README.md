@@ -23,3 +23,13 @@ git clone https://github.com/SakodaShintaro/alpamayo_workspace
 cd alpamayo_workspace
 git submodule update --init --recursive
 ```
+
+## Setup
+
+```bash
+uv sync
+uv run python alpamayo/src/alpamayo_r1/test_inference.py
+uv run python alpamayo1.5/src/alpamayo1_5/test_inference.py
+```
+
+両スクリプトともサンプルデータ(数百MB)+ モデルウェイト(各22GB)を初回に自動DLする。
