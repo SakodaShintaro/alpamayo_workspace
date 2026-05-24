@@ -64,10 +64,13 @@ class PIDTrajectoryFollower:
 
         velocity = self.vehicle.get_velocity()
         speed_mps = math.sqrt(velocity.x**2 + velocity.y**2 + velocity.z**2)
-        lookahead = float(np.clip(
-            LOOKAHEAD_MIN_M + speed_mps * LOOKAHEAD_SPEED_GAIN,
-            LOOKAHEAD_MIN_M, LOOKAHEAD_MAX_M,
-        ))
+        lookahead = float(
+            np.clip(
+                LOOKAHEAD_MIN_M + speed_mps * LOOKAHEAD_SPEED_GAIN,
+                LOOKAHEAD_MIN_M,
+                LOOKAHEAD_MAX_M,
+            )
+        )
 
         ego_xy = np.array([vehicle_tf.location.x, vehicle_tf.location.y])
         dists = np.linalg.norm(traj_world[:, :2] - ego_xy[None, :], axis=1)
@@ -83,15 +86,20 @@ class PIDTrajectoryFollower:
         target_yaw = math.degrees(math.atan2(dy, dx))
 
         target_tf = carla.Transform(
-            carla.Location(x=float(target_world[0]), y=float(target_world[1]), z=float(target_world[2])),
+            carla.Location(
+                x=float(target_world[0]), y=float(target_world[1]), z=float(target_world[2])
+            ),
             carla.Rotation(yaw=target_yaw),
         )
 
         traj_extent = float(np.max(np.linalg.norm(traj_carla_local[:, :2], axis=1)))
-        target_speed_kmh = float(np.clip(
-            traj_extent * TARGET_SPEED_EXTENT_GAIN,
-            TARGET_SPEED_MIN_KMH, TARGET_SPEED_MAX_KMH,
-        ))
+        target_speed_kmh = float(
+            np.clip(
+                traj_extent * TARGET_SPEED_EXTENT_GAIN,
+                TARGET_SPEED_MIN_KMH,
+                TARGET_SPEED_MAX_KMH,
+            )
+        )
 
         raw = self.pid.run_step(target_speed_kmh, _RawWaypoint(target_tf))
 

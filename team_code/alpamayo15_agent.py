@@ -34,10 +34,42 @@ ROAD_OPTION_TEXT = {
 }
 
 CAMERAS = [
-    {"id": "cam_front_left",  "x": 1.0, "y": -0.5, "z": 2.4, "yaw": -60.0, "fov": 120, "alpamayo_idx": 0},
-    {"id": "cam_front_wide",  "x": 1.5, "y":  0.0, "z": 2.4, "yaw":   0.0, "fov":  95, "alpamayo_idx": 1},
-    {"id": "cam_front_right", "x": 1.0, "y":  0.5, "z": 2.4, "yaw":  60.0, "fov": 120, "alpamayo_idx": 2},
-    {"id": "cam_front_tele",  "x": 1.5, "y":  0.0, "z": 2.4, "yaw":   0.0, "fov":  30, "alpamayo_idx": 6},
+    {
+        "id": "cam_front_left",
+        "x": 1.0,
+        "y": -0.5,
+        "z": 2.4,
+        "yaw": -60.0,
+        "fov": 120,
+        "alpamayo_idx": 0,
+    },
+    {
+        "id": "cam_front_wide",
+        "x": 1.5,
+        "y": 0.0,
+        "z": 2.4,
+        "yaw": 0.0,
+        "fov": 95,
+        "alpamayo_idx": 1,
+    },
+    {
+        "id": "cam_front_right",
+        "x": 1.0,
+        "y": 0.5,
+        "z": 2.4,
+        "yaw": 60.0,
+        "fov": 120,
+        "alpamayo_idx": 2,
+    },
+    {
+        "id": "cam_front_tele",
+        "x": 1.5,
+        "y": 0.0,
+        "z": 2.4,
+        "yaw": 0.0,
+        "fov": 30,
+        "alpamayo_idx": 6,
+    },
 ]
 
 SPECTATOR_ID = "spectator"
@@ -101,18 +133,30 @@ class Alpamayo15Agent(AutonomousAgent):
             {
                 "type": "sensor.camera.rgb",
                 "id": c["id"],
-                "x": c["x"], "y": c["y"], "z": c["z"],
-                "roll": 0.0, "pitch": 0.0, "yaw": c["yaw"],
-                "width": IMG_WIDTH, "height": IMG_HEIGHT, "fov": c["fov"],
+                "x": c["x"],
+                "y": c["y"],
+                "z": c["z"],
+                "roll": 0.0,
+                "pitch": 0.0,
+                "yaw": c["yaw"],
+                "width": IMG_WIDTH,
+                "height": IMG_HEIGHT,
+                "fov": c["fov"],
             }
             for c in CAMERAS
         ]
         spectator = {
             "type": "sensor.camera.rgb",
             "id": SPECTATOR_ID,
-            "x": -8.0, "y": 0.0, "z": 5.0,
-            "roll": 0.0, "pitch": -20.0, "yaw": 0.0,
-            "width": SPECTATOR_WIDTH, "height": SPECTATOR_HEIGHT, "fov": 90,
+            "x": -8.0,
+            "y": 0.0,
+            "z": 5.0,
+            "roll": 0.0,
+            "pitch": -20.0,
+            "yaw": 0.0,
+            "width": SPECTATOR_WIDTH,
+            "height": SPECTATOR_HEIGHT,
+            "fov": 90,
         }
         return policy_cams + [spectator]
 
@@ -132,7 +176,9 @@ class Alpamayo15Agent(AutonomousAgent):
 
         if self._tick % SPECTATOR_INTERVAL_TICKS == 0:
             bgr = input_data[SPECTATOR_ID][1][:, :, :3]
-            cv2.imwrite(str(self._spectator_dir / f"frame_{self._spectator_frame_idx:08d}.png"), bgr)
+            cv2.imwrite(
+                str(self._spectator_dir / f"frame_{self._spectator_frame_idx:08d}.png"), bgr
+            )
             self._spectator_frame_idx += 1
 
         ready = len(self._frame_buffer) == NUM_FRAMES
@@ -174,7 +220,9 @@ class Alpamayo15Agent(AutonomousAgent):
         nav_text = self._nav_text(self.hero_actor.get_location())
         self._log.info(f"nav_text: {nav_text}")
         camera_indices = torch.tensor([c["alpamayo_idx"] for c in CAMERAS], dtype=torch.long)
-        messages = helper.create_message(image_tensor.flatten(0, 1), camera_indices=camera_indices, nav_text=nav_text)
+        messages = helper.create_message(
+            image_tensor.flatten(0, 1), camera_indices=camera_indices, nav_text=nav_text
+        )
         inputs = self.processor.apply_chat_template(
             messages,
             tokenize=True,
