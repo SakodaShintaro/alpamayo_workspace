@@ -61,3 +61,5 @@ ffmpeg -r 10 \
        -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
        -r 10 \
        "${OUTPUT_DIR}/spectator.mp4"
+
+cat ${OUTPUT_DIR}/eval.json
