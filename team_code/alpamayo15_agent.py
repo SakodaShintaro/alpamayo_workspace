@@ -14,7 +14,7 @@ from alpamayo1_5.models.alpamayo1_5 import Alpamayo1_5
 from leaderboard.autoagents.autonomous_agent import AutonomousAgent, Track
 
 from team_code.ego_history import EgoHistoryBuffer
-from team_code.logger import get_logger
+from team_code.logger import configure_logger, get_logger
 from team_code.pid_follower import PIDTrajectoryFollower, alpamayo_to_carla_local, local_to_world
 
 MODEL_NAME = "nvidia/Alpamayo-1.5-10B"
@@ -105,15 +105,24 @@ class Alpamayo15Agent(AutonomousAgent):
         self._dumped = False
         self._world_plan: list[tuple[carla.Transform, RoadOption]] = []
         self._log = get_logger()
-        self._spectator_dir = Path(os.environ.get("SAVE_PATH", ".")) / "spectator"
-        self._spectator_dir.mkdir(parents=True, exist_ok=True)
+        self._save_root = Path(os.environ.get("SAVE_PATH", "."))
+        self._scenario_dir: Path | None = None
+        self._spectator_dir: Path | None = None
+        self._dump_dir: Path | None = None
         self._spectator_frame_idx = 0
         self._show_spectator = bool(os.environ.get("DISPLAY"))
-        if not self._show_spectator:
-            self._log.info("DISPLAY not set, spectator window disabled")
 
     def setup(self, path_to_conf_file):
         self.track = Track.SENSORS
+        save_name = path_to_conf_file.rsplit("+", 1)[-1] if "+" in path_to_conf_file else "default"
+        self._scenario_dir = self._save_root / save_name
+        self._spectator_dir = self._scenario_dir / "spectator"
+        self._spectator_dir.mkdir(parents=True, exist_ok=True)
+        self._dump_dir = self._scenario_dir / "input_images"
+        configure_logger(self._scenario_dir)
+        self._log.info(f"scenario output dir: {self._scenario_dir}")
+        if not self._show_spectator:
+            self._log.info("DISPLAY not set, spectator window disabled")
         self._log.info(f"loading {MODEL_NAME} ...")
         self.model = Alpamayo1_5.from_pretrained(MODEL_NAME, dtype=torch.bfloat16).to("cuda")
         self.processor = helper.get_processor(self.model.tokenizer)
@@ -223,7 +232,7 @@ class Alpamayo15Agent(AutonomousAgent):
         )
         if not self._dumped:
             self._dumped = True
-            dump_dir = Path(os.environ.get("SAVE_PATH", ".")) / "input_images"
+            dump_dir = self._dump_dir
             dump_dir.mkdir(parents=True, exist_ok=True)
             for ci, c in enumerate(CAMERAS):
                 cam_dir = dump_dir / c["id"]

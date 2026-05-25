@@ -53,13 +53,18 @@ CUDA_VISIBLE_DEVICES=0 "${REPO_ROOT}/.venv/bin/python" \
   --traffic-manager-port=50000 \
   --gpu-rank=0
 
-file_list=$(find "${OUTPUT_DIR}/spectator" -name "*.png" | sort -V)
-ffmpeg -r 10 \
-       -f concat -safe 0 -i <(printf "file '%s'\n" ${file_list}) \
-       -vcodec libx264 \
-       -pix_fmt yuv420p \
-       -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-       -r 10 \
-       "${OUTPUT_DIR}/spectator.mp4"
+for spec_dir in "${OUTPUT_DIR}"/*/spectator; do
+    [ -d "${spec_dir}" ] || continue
+    scenario_dir=$(dirname "${spec_dir}")
+    file_list=$(find "${spec_dir}" -name "*.png" | sort -V)
+    [ -z "${file_list}" ] && continue
+    ffmpeg -y -r 10 \
+           -f concat -safe 0 -i <(printf "file '%s'\n" ${file_list}) \
+           -vcodec libx264 \
+           -pix_fmt yuv420p \
+           -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
+           -r 10 \
+           "${scenario_dir}/spectator.mp4"
+done
 
 cat ${OUTPUT_DIR}/eval.json
