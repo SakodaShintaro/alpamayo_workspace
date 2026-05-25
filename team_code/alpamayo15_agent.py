@@ -1,3 +1,4 @@
+import json
 import math
 import os
 import textwrap
@@ -111,6 +112,7 @@ class Alpamayo15Agent(AutonomousAgent):
         self._dump_dir: Path | None = None
         self._spectator_frame_idx = 0
         self._show_spectator = bool(os.environ.get("DISPLAY"))
+        self._metric_info: dict[str, dict] = {}
 
     def setup(self, path_to_conf_file):
         self.track = Track.SENSORS
@@ -187,6 +189,8 @@ class Alpamayo15Agent(AutonomousAgent):
     def run_step(self, input_data, timestamp):
         if self._follower is None:
             self._follower = PIDTrajectoryFollower(self.hero_actor)
+
+        self._metric_info[f"{self._tick:08d}"] = self.get_metric_info()
 
         tf = self.hero_actor.get_transform()
         self._ego_history.push(tf.location.x, tf.location.y, tf.location.z, tf.rotation.yaw)
@@ -333,6 +337,9 @@ class Alpamayo15Agent(AutonomousAgent):
                 )
 
     def destroy(self):
+        if self._scenario_dir is not None and self._metric_info:
+            with open(self._scenario_dir / "metric_info.json", "w") as f:
+                json.dump(self._metric_info, f)
         if self._show_spectator:
             cv2.destroyAllWindows()
         self.model = None
