@@ -28,6 +28,6 @@ def configure_logger(log_dir: Path) -> None:
         logger.removeHandler(h)
         h.close()
     log_dir.mkdir(parents=True, exist_ok=True)
-    handler = logging.FileHandler(log_dir / "agent.log", mode="w")
+    handler = logging.FileHandler(log_dir / "agent.log", mode="w", delay=True)
     handler.setFormatter(_FORMATTER)
     logger.addHandler(handler)

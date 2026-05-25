@@ -123,6 +123,7 @@ class Alpamayo15Agent(AutonomousAgent):
         self._dump_dir = self._scenario_dir / "input_images"
         configure_logger(self._scenario_dir)
         self._log.info(f"scenario output dir: {self._scenario_dir}")
+        self._log.info(f"global plan: {len(self._world_plan)} waypoints")
         if not self._show_spectator:
             self._log.info("DISPLAY not set, spectator window disabled")
         self._log.info(f"loading {MODEL_NAME} ...")
@@ -133,7 +134,6 @@ class Alpamayo15Agent(AutonomousAgent):
     def set_global_plan(self, global_plan_gps, global_plan_world_coord):
         super().set_global_plan(global_plan_gps, global_plan_world_coord)
         self._world_plan = list(global_plan_world_coord)
-        self._log.info(f"global plan received: {len(self._world_plan)} waypoints")
 
     def _nav_text(self, ego_loc: carla.Location) -> str:
         if not self._world_plan:
