@@ -54,3 +54,9 @@ The result is written out as a spectator video, among other artifacts.
 ```bash
 ls ./results/b2d_alpamayo15_20260524_190913/spectator.mp4
 ```
+
+Run 220 scenarios.
+
+```bash
+./scripts/run_b2d_alpamayo15.sh ./Bench2Drive/leaderboard/data/bench2drive220.xml
+```
