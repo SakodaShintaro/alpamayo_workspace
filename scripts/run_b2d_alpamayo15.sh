@@ -32,6 +32,7 @@ export PYTHONPATH=${B2D_ROOT}/scenario_runner:${PYTHONPATH}
 export PYTHONPATH=${REPO_ROOT}:${PYTHONPATH}
 export SCENARIO_RUNNER_ROOT=${B2D_ROOT}/scenario_runner
 export IS_BENCH2DRIVE=True
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTPUT_DIR=${REPO_ROOT}/results/b2d_alpamayo15_${TIMESTAMP}
@@ -51,7 +52,7 @@ CUDA_VISIBLE_DEVICES=0 "${REPO_ROOT}/.venv/bin/python" \
   --resume=True \
   --port=30000 \
   --traffic-manager-port=50000 \
-  --gpu-rank=0
+  --gpu-rank=0 2>&1 | tee "${OUTPUT_DIR}/run.log"
 
 for spec_dir in "${OUTPUT_DIR}"/*/spectator; do
     [ -d "${spec_dir}" ] || continue

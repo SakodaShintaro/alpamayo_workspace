@@ -88,6 +88,19 @@ SPECTATOR_LOCAL_TF = carla.Transform(
     carla.Rotation(roll=0.0, pitch=-20.0, yaw=0.0),
 )
 
+_CACHED_MODEL: Alpamayo1_5 | None = None
+_CACHED_PROCESSOR = None
+
+
+def _load_model_once(log):
+    global _CACHED_MODEL, _CACHED_PROCESSOR
+    if _CACHED_MODEL is None:
+        log.info(f"loading {MODEL_NAME} ...")
+        _CACHED_MODEL = Alpamayo1_5.from_pretrained(MODEL_NAME, dtype=torch.bfloat16).to("cuda")
+        _CACHED_PROCESSOR = helper.get_processor(_CACHED_MODEL.tokenizer)
+        log.info("model loaded")
+    return _CACHED_MODEL, _CACHED_PROCESSOR
+
 
 def get_entry_point() -> str:
     return "Alpamayo15Agent"
@@ -126,10 +139,7 @@ class Alpamayo15Agent(AutonomousAgent):
         self._log.info(f"global plan: {len(self._world_plan)} waypoints")
         if not self._show_spectator:
             self._log.info("DISPLAY not set, spectator window disabled")
-        self._log.info(f"loading {MODEL_NAME} ...")
-        self.model = Alpamayo1_5.from_pretrained(MODEL_NAME, dtype=torch.bfloat16).to("cuda")
-        self.processor = helper.get_processor(self.model.tokenizer)
-        self._log.info("model loaded")
+        self.model, self.processor = _load_model_once(self._log)
 
     def set_global_plan(self, global_plan_gps, global_plan_world_coord):
         super().set_global_plan(global_plan_gps, global_plan_world_coord)
@@ -342,5 +352,4 @@ class Alpamayo15Agent(AutonomousAgent):
                 json.dump(self._metric_info, f)
         if self._show_spectator:
             cv2.destroyAllWindows()
-        self.model = None
         torch.cuda.empty_cache()
