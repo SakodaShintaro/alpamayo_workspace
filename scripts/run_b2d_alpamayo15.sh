@@ -33,6 +33,7 @@ export PYTHONPATH=${REPO_ROOT}:${PYTHONPATH}
 export SCENARIO_RUNNER_ROOT=${B2D_ROOT}/scenario_runner
 export IS_BENCH2DRIVE=True
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export ALPAMAYO_FRONT_ONLY=0
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTPUT_DIR=${REPO_ROOT}/results/b2d_alpamayo15_${TIMESTAMP}

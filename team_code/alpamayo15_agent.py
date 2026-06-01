@@ -38,7 +38,7 @@ ROAD_OPTION_TEXT = {
     RoadOption.CHANGELANERIGHT: "Change lane to the right",
 }
 
-CAMERAS = [
+_ALL_CAMERAS = [
     {
         "id": "cam_front_left",
         "x": 1.0,
@@ -76,6 +76,13 @@ CAMERAS = [
         "alpamayo_idx": 6,
     },
 ]
+
+FRONT_ONLY = bool(int(os.environ.get("ALPAMAYO_FRONT_ONLY", "0")))
+CAMERAS = (
+    [c for c in _ALL_CAMERAS if c["id"] == "cam_front_wide"]
+    if FRONT_ONLY
+    else _ALL_CAMERAS
+)
 
 SPECTATOR_ID = "spectator"
 SPECTATOR_WIDTH = 640
@@ -136,6 +143,7 @@ class Alpamayo15Agent(AutonomousAgent):
         self._dump_dir = self._scenario_dir / "input_images"
         configure_logger(self._scenario_dir)
         self._log.info(f"scenario output dir: {self._scenario_dir}")
+        self._log.info(f"cameras: {[c['id'] for c in CAMERAS]} (FRONT_ONLY={FRONT_ONLY})")
         self._log.info(f"global plan: {len(self._world_plan)} waypoints")
         if not self._show_spectator:
             self._log.info("DISPLAY not set, spectator window disabled")
